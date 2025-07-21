@@ -1,0 +1,6 @@
+{
+  "name": "AI Knowledge Verification Test",
+  "description": "An application that tests an AI's knowledge about a specific work in a two-step process: first using its internal knowledge, then verifying and scoring itself using web search.",
+  "requestFramePermissions": [],
+  "prompt": ""
+}
