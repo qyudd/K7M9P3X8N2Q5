@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useEffect } from 'react';
 import { getInternalKnowledgeStream, getVerifiedKnowledgeStream } from './services/geminiService';
 import { GroundingChunk, AppStatus } from './types';
@@ -23,6 +22,7 @@ const SearchIcon = () => (
 
 function App() {
     const [apiKey, setApiKey] = useState<string>('');
+    const [model, setModel] = useState<string>('gemini-2.5-flash');
     const [userInput, setUserInput] = useState<string>('');
     const [testTitle, setTestTitle] = useState<string>('');
     const [status, setStatus] = useState<AppStatus>('idle');
@@ -65,7 +65,7 @@ function App() {
 
         try {
             // Step 1: Internal Knowledge
-            const step1Stream = await getInternalKnowledgeStream(apiKey, userInput);
+            const step1Stream = await getInternalKnowledgeStream(apiKey, userInput, model);
             let step1FullResult = '';
             for await (const chunk of step1Stream) {
                 const text = chunk.text;
@@ -75,7 +75,7 @@ function App() {
 
             // Step 2: Web Verification
             setStatus('step2_generating');
-            const step2Stream = await getVerifiedKnowledgeStream(apiKey, userInput, step1FullResult);
+            const step2Stream = await getVerifiedKnowledgeStream(apiKey, userInput, step1FullResult, model);
             for await (const chunk of step2Stream) {
                 setStep2Result(prev => prev + chunk.text);
                 const newChunks = chunk.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
@@ -104,7 +104,7 @@ function App() {
             setError(e instanceof Error ? e.message : 'An unknown error occurred.');
             setStatus('error');
         }
-    }, [apiKey, userInput, status, resetState]);
+    }, [apiKey, userInput, status, resetState, model]);
 
 
     const isProcessing = status === 'step1_generating' || status === 'step2_generating';
@@ -115,17 +115,32 @@ function App() {
         <div className="min-h-screen bg-[#1a1b26] text-[#c0caf5] font-sans p-4 sm:p-8 flex flex-col">
             <Header />
             
-            <div className="w-full max-w-2xl mx-auto mb-4">
-                <label htmlFor="api-key-input" className="block text-sm font-medium text-[#a9b1d6] mb-1">Gemini API Key</label>
-                <input
-                    id="api-key-input"
-                    type="password"
-                    value={apiKey}
-                    onChange={(e) => setApiKey(e.target.value)}
-                    placeholder="Enter your Gemini API Key here"
-                    className="w-full bg-[#24283b] border-2 border-[#414868] rounded-lg p-3 text-[#c0caf5] placeholder-[#565f89] focus:outline-none focus:ring-2 focus:ring-[#7aa2f7] transition duration-200"
-                />
-                 <p className="text-xs text-[#565f89] mt-1">Your API key is stored only in your browser's local storage.</p>
+            <div className="w-full max-w-2xl mx-auto mb-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label htmlFor="api-key-input" className="block text-sm font-medium text-[#a9b1d6] mb-1">Gemini API Key</label>
+                    <input
+                        id="api-key-input"
+                        type="password"
+                        value={apiKey}
+                        onChange={(e) => setApiKey(e.target.value)}
+                        placeholder="Enter your Gemini API Key here"
+                        className="w-full bg-[#24283b] border-2 border-[#414868] rounded-lg p-3 text-[#c0caf5] placeholder-[#565f89] focus:outline-none focus:ring-2 focus:ring-[#7aa2f7] transition duration-200"
+                    />
+                    <p className="text-xs text-[#565f89] mt-1">Your API key is stored only in your browser's local storage.</p>
+                </div>
+                <div>
+                    <label htmlFor="model-select" className="block text-sm font-medium text-[#a9b1d6] mb-1">Model</label>
+                    <select 
+                        id="model-select"
+                        value={model}
+                        onChange={(e) => setModel(e.target.value)}
+                        className="w-full bg-[#24283b] border-2 border-[#414868] rounded-lg p-3 text-[#c0caf5] focus:outline-none focus:ring-2 focus:ring-[#7aa2f7] transition duration-200"
+                    >
+                        <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+                        <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+                    </select>
+                    <p className="text-xs text-[#565f89] mt-1">Pro model is slower but more thorough.</p>
+                </div>
             </div>
 
             <InputForm
