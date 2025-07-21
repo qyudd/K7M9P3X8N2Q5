@@ -22,6 +22,7 @@ const SearchIcon = () => (
 );
 
 function App() {
+    const [apiKey, setApiKey] = useState<string>('');
     const [userInput, setUserInput] = useState<string>('');
     const [testTitle, setTestTitle] = useState<string>('');
     const [status, setStatus] = useState<AppStatus>('idle');
@@ -30,6 +31,19 @@ function App() {
     const [step1Result, setStep1Result] = useState<string>('');
     const [step2Result, setStep2Result] = useState<string>('');
     const [searchResults, setSearchResults] = useState<GroundingChunk[]>([]);
+
+    useEffect(() => {
+        const storedApiKey = localStorage.getItem('gemini-api-key');
+        if (storedApiKey) {
+            setApiKey(storedApiKey);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (apiKey) {
+            localStorage.setItem('gemini-api-key', apiKey);
+        }
+    }, [apiKey]);
 
     const resetState = useCallback(() => {
         setUserInput('');
@@ -42,7 +56,7 @@ function App() {
     }, []);
     
     const handleStartTest = useCallback(async () => {
-        if (!userInput.trim() || status !== 'idle') return;
+        if (!userInput.trim() || !apiKey || status !== 'idle') return;
 
         resetState();
         setTestTitle(userInput);
@@ -50,61 +64,47 @@ function App() {
         setError(null);
 
         try {
-            const stream = await getInternalKnowledgeStream(userInput);
-            for await (const chunk of stream) {
-                setStep1Result(prev => prev + chunk.text);
+            // Step 1: Internal Knowledge
+            const step1Stream = await getInternalKnowledgeStream(apiKey, userInput);
+            let step1FullResult = '';
+            for await (const chunk of step1Stream) {
+                const text = chunk.text;
+                step1FullResult += text;
+                setStep1Result(prev => prev + text);
             }
+
+            // Step 2: Web Verification
             setStatus('step2_generating');
+            const step2Stream = await getVerifiedKnowledgeStream(apiKey, userInput, step1FullResult);
+            for await (const chunk of step2Stream) {
+                setStep2Result(prev => prev + chunk.text);
+                const newChunks = chunk.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+                if (newChunks.length > 0) {
+                    setSearchResults(prev => {
+                        const existingUris = new Set(prev.map(c => c.web.uri));
+                        const uniqueNewChunks = newChunks.filter(
+                            c => c.web && c.web.uri && !existingUris.has(c.web.uri)
+                        );
+                        if (uniqueNewChunks.length === 0) return prev;
+                        const mappedChunks: GroundingChunk[] = uniqueNewChunks.map(c => ({
+                            web: {
+                                uri: c.web!.uri!,
+                                title: c.web!.title || '',
+                            }
+                        }));
+                        return [...prev, ...mappedChunks];
+                    });
+                }
+            }
+            
+            setStatus('completed');
+
         } catch (e) {
             console.error(e);
-            setError(e instanceof Error ? e.message : 'An unknown error occurred during Step 1.');
+            setError(e instanceof Error ? e.message : 'An unknown error occurred.');
             setStatus('error');
         }
-    }, [userInput, status, resetState]);
-
-    useEffect(() => {
-        const runStep2 = async () => {
-            if (status !== 'step2_generating' || !testTitle) return;
-
-            try {
-                const stream = await getVerifiedKnowledgeStream(testTitle);
-                for await (const chunk of stream) {
-                    setStep2Result(prev => prev + chunk.text);
-                    const newChunks = chunk.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
-                    if (newChunks.length > 0) {
-                        setSearchResults(prev => {
-                            const existingUris = new Set(prev.map(c => c.web.uri));
-                            
-                            const uniqueNewChunks = newChunks.filter(
-                                c => c.web && c.web.uri && !existingUris.has(c.web.uri)
-                            );
-
-                            if (uniqueNewChunks.length === 0) {
-                                return prev;
-                            }
-
-                            const mappedChunks: GroundingChunk[] = uniqueNewChunks.map(c => ({
-                                web: {
-                                    uri: c.web!.uri!,
-                                    title: c.web!.title || '',
-                                }
-                            }));
-                            
-                            return [...prev, ...mappedChunks];
-                        });
-                    }
-                }
-                setStatus('completed');
-            } catch (e) {
-                console.error(e);
-                setError(e instanceof Error ? e.message : 'An unknown error occurred during Step 2.');
-                setStatus('error');
-            }
-        };
-
-        runStep2();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [status, testTitle]);
+    }, [apiKey, userInput, status, resetState]);
 
 
     const isProcessing = status === 'step1_generating' || status === 'step2_generating';
@@ -114,11 +114,26 @@ function App() {
     return (
         <div className="min-h-screen bg-[#1a1b26] text-[#c0caf5] font-sans p-4 sm:p-8 flex flex-col">
             <Header />
-            <InputForm 
+            
+            <div className="w-full max-w-2xl mx-auto mb-4">
+                <label htmlFor="api-key-input" className="block text-sm font-medium text-[#a9b1d6] mb-1">Gemini API Key</label>
+                <input
+                    id="api-key-input"
+                    type="password"
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
+                    placeholder="Enter your Gemini API Key here"
+                    className="w-full bg-[#24283b] border-2 border-[#414868] rounded-lg p-3 text-[#c0caf5] placeholder-[#565f89] focus:outline-none focus:ring-2 focus:ring-[#7aa2f7] transition duration-200"
+                />
+                 <p className="text-xs text-[#565f89] mt-1">Your API key is stored only in your browser's local storage.</p>
+            </div>
+
+            <InputForm
                 userInput={userInput}
                 setUserInput={setUserInput}
                 isProcessing={isProcessing}
                 isCompleted={isCompleted}
+                isApiKeySet={!!apiKey}
                 onStart={handleStartTest}
                 onReset={resetState}
             />

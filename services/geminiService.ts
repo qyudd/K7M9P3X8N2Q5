@@ -1,13 +1,15 @@
 import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 import { STEP_1_PROMPT_TEMPLATE, STEP_2_PROMPT_TEMPLATE } from '../constants';
 
-if (!process.env.API_KEY) {
-    throw new Error("API_KEY environment variable is not set.");
+function getAiClient(apiKey: string) {
+    if (!apiKey) {
+        throw new Error("API_KEY is not provided.");
+    }
+    return new GoogleGenAI({ apiKey });
 }
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
-export async function getInternalKnowledgeStream(workTitle: string): Promise<AsyncGenerator<GenerateContentResponse>> {
+export async function getInternalKnowledgeStream(apiKey: string, workTitle: string): Promise<AsyncGenerator<GenerateContentResponse>> {
+    const ai = getAiClient(apiKey);
     const prompt = STEP_1_PROMPT_TEMPLATE.replace('{{WORK_TITLE}}', workTitle);
     
     const stream = await ai.models.generateContentStream({
@@ -18,8 +20,11 @@ export async function getInternalKnowledgeStream(workTitle: string): Promise<Asy
     return stream;
 }
 
-export async function getVerifiedKnowledgeStream(workTitle: string): Promise<AsyncGenerator<GenerateContentResponse>> {
-    const prompt = STEP_2_PROMPT_TEMPLATE.replace('{{WORK_TITLE}}', workTitle);
+export async function getVerifiedKnowledgeStream(apiKey: string, workTitle: string, step1Result: string): Promise<AsyncGenerator<GenerateContentResponse>> {
+    const ai = getAiClient(apiKey);
+    const prompt = STEP_2_PROMPT_TEMPLATE
+        .replace('{{WORK_TITLE}}', workTitle)
+        .replace('{{STEP_1_RESULT}}', step1Result);
 
     const stream = await ai.models.generateContentStream({
         model: 'gemini-2.5-flash',

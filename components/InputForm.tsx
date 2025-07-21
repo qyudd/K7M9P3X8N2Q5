@@ -6,14 +6,15 @@ interface InputFormProps {
     setUserInput: (value: string) => void;
     isProcessing: boolean;
     isCompleted: boolean;
+    isApiKeySet: boolean;
     onStart: () => void;
     onReset: () => void;
 }
 
-const InputForm: React.FC<InputFormProps> = ({ userInput, setUserInput, isProcessing, isCompleted, onStart, onReset }) => {
+const InputForm: React.FC<InputFormProps> = ({ userInput, setUserInput, isProcessing, isCompleted, isApiKeySet, onStart, onReset }) => {
     
     const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
-        if (event.key === 'Enter' && !isProcessing && userInput.trim()) {
+        if (event.key === 'Enter' && !isProcessing && userInput.trim() && isApiKeySet) {
             onStart();
         }
     };
@@ -26,13 +27,13 @@ const InputForm: React.FC<InputFormProps> = ({ userInput, setUserInput, isProces
                     value={userInput}
                     onChange={(e) => setUserInput(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    placeholder="Enter a work title (e.g., 'One Piece', 'Dune')"
-                    disabled={isProcessing}
+                    placeholder={isApiKeySet ? "Enter a work title (e.g., 'One Piece', 'Dune')" : "Please provide your API Key above to begin"}
+                    disabled={isProcessing || !isApiKeySet}
                     className="flex-grow bg-[#24283b] border-2 border-[#414868] rounded-lg p-3 text-[#c0caf5] placeholder-[#565f89] focus:outline-none focus:ring-2 focus:ring-[#7aa2f7] transition duration-200 disabled:opacity-50"
                 />
                 <button
                     onClick={isCompleted ? onReset : onStart}
-                    disabled={isProcessing || (!isCompleted && !userInput.trim())}
+                    disabled={isProcessing || !isApiKeySet || (!isCompleted && !userInput.trim())}
                     className={`px-6 py-3 font-bold rounded-lg transition duration-200 text-[#1a1b26] disabled:opacity-50 disabled:cursor-not-allowed
                     ${isCompleted 
                         ? 'bg-[#f7768e] hover:bg-opacity-90' 
