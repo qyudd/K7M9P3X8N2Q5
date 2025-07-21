@@ -1,4 +1,3 @@
-
 import React from 'react';
 import Spinner from './Spinner';
 import SimpleMarkdownRenderer from './SimpleMarkdownRenderer';
@@ -14,9 +13,9 @@ interface ResultCardProps {
 const ResultCard: React.FC<ResultCardProps> = ({ title, icon, content, isLoading, children }) => {
     return (
         <div className="bg-[#24283b] rounded-lg shadow-2xl flex flex-col h-full">
-            <div className="border-b-2 border-[#414868] p-4 flex items-center gap-3">
+            <div className="border-b-2 border-[#414868] p-4 flex items-center gap-3 min-w-0">
                 {icon}
-                <h2 className="text-2xl font-bold text-[#bb9af7]">{title}</h2>
+                <h2 className="text-2xl font-bold text-[#bb9af7] flex-shrink min-w-0">{title}</h2>
             </div>
             <div className="p-6 overflow-y-auto flex-grow" style={{ maxHeight: '70vh' }}>
                 {isLoading && !content && <Spinner />}

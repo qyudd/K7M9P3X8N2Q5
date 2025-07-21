@@ -101,7 +101,22 @@ function App() {
 
         } catch (e) {
             console.error(e);
-            setError(e instanceof Error ? e.message : 'An unknown error occurred.');
+            let errorMessage = 'An unknown error occurred.';
+            if (e instanceof Error) {
+                try {
+                    // Attempt to parse the message as JSON
+                    const parsedError = JSON.parse(e.message);
+                    if (parsedError.error && parsedError.error.message) {
+                        errorMessage = parsedError.error.message;
+                    } else {
+                        errorMessage = e.message;
+                    }
+                } catch (parseError) {
+                    // If parsing fails, use the original error message
+                    errorMessage = e.message;
+                }
+            }
+            setError(errorMessage);
             setStatus('error');
         }
     }, [apiKey, userInput, status, resetState, model]);
