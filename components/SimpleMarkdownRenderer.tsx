@@ -6,43 +6,58 @@ interface SimpleMarkdownRendererProps {
 }
 
 const SimpleMarkdownRenderer: React.FC<SimpleMarkdownRendererProps> = ({ text }) => {
-  const renderLine = (line: string, index: number) => {
-    if (line.startsWith('# 1단계') || line.startsWith('# 2단계')) {
-       return null; // Hide the prompt headers from the response
-    }
-    if (line.startsWith('### ')) {
-      return <h3 key={index} className="text-lg font-bold mt-4 mb-2 text-[#9ece6a]">{line.substring(4)}</h3>;
-    }
-    if (line.startsWith('## ')) {
-      return <h2 key={index} className="text-xl font-bold mt-6 mb-3 text-[#7dcfff]">{line.substring(3)}</h2>;
-    }
-    if (line.startsWith('* ')) {
-       // Check for nested list item
-       const isNested = line.trim().startsWith('*');
-       return <li key={index} className={`list-disc ${isNested ? 'ml-10' : 'ml-5'}`}>{line.substring(line.indexOf('* ') + 2)}</li>;
-    }
+  const renderMarkdown = (markdownText: string) => {
+    const blocks = markdownText.split(/(\n\n+)/);
 
-    const parts = line.split(/(\*\*.*?\*\*|`.*?`)/g);
+    return blocks.map((block, index) => {
+      if (block.trim() === '') return null;
 
-    return (
-      <p key={index} className="my-2 leading-relaxed">
-        {parts.map((part, i) => {
-          if (part.startsWith('**') && part.endsWith('**')) {
-            return <strong key={i}>{part.slice(2, -2)}</strong>;
-          }
-          if (part.startsWith('`') && part.endsWith('`')) {
-            return <code key={i} className="bg-[#1e2030] text-[#e0af68] px-1 py-0.5 rounded text-sm">{part.slice(1, -1)}</code>;
-          }
-          return part;
-        })}
-      </p>
-    );
+      // Headers
+      if (block.startsWith('# ')) return <h1 key={index} className="text-2xl font-bold mt-6 mb-4 text-[#bb9af7]">{block.substring(2)}</h1>;
+      if (block.startsWith('## ')) return <h2 key={index} className="text-xl font-bold mt-5 mb-3 text-[#7dcfff]">{block.substring(3)}</h2>;
+      if (block.startsWith('### ')) return <h3 key={index} className="text-lg font-bold mt-4 mb-2 text-[#9ece6a]">{block.substring(4)}</h3>;
+
+      // Unordered Lists
+      if (block.startsWith('* ')) {
+        const items = block.split('\n').filter(item => item.startsWith('* '));
+        return (
+          <ul key={index} className="list-disc list-inside space-y-1 my-2">
+            {items.map((item, i) => <li key={i}>{renderInline(item.substring(2))}</li>)}
+          </ul>
+        );
+      }
+      
+      // Ordered Lists
+      if (block.match(/^\d+\. /)) {
+        const items = block.split('\n').filter(item => item.match(/^\d+\. /));
+        return (
+          <ol key={index} className="list-decimal list-inside space-y-1 my-2">
+            {items.map((item, i) => <li key={i}>{renderInline(item.replace(/^\d+\. /, ''))}</li>)}
+          </ol>
+        );
+      }
+
+      // Default to paragraph
+      return <p key={index} className="my-3 leading-relaxed">{renderInline(block)}</p>;
+    });
   };
-  
-  // Normalize line breaks and filter out empty lines for cleaner rendering
-  const lines = text.replace(/\\n/g, '\n').split('\n').filter(line => line.trim() !== '');
 
-  return <div className="prose-invert text-[#c0caf5]">{lines.map(renderLine)}</div>;
+  const renderInline = (inlineText: string) => {
+    const parts = inlineText.split(/(\*\*.*?\*\*|`.*?`)/g);
+    return parts.map((part, i) => {
+      if (part.startsWith('**') && part.endsWith('**')) {
+        return <strong key={i} className="font-bold">{part.slice(2, -2)}</strong>;
+      }
+      if (part.startsWith('`') && part.endsWith('`')) {
+        return <code key={i} className="bg-[#1e2030] text-[#e0af68] px-1.5 py-1 rounded-md text-sm font-mono">{part.slice(1, -1)}</code>;
+      }
+      return part;
+    });
+  };
+
+  const cleanedText = text.replace(/# (1단계|2단계):.*?(\n|$)/g, '');
+
+  return <div className="prose-invert text-[#c0caf5]">{renderMarkdown(cleanedText)}</div>;
 };
 
 export default SimpleMarkdownRenderer;
